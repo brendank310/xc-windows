@@ -42,6 +42,7 @@ struct _XEN_WORKITEM {
 static struct xm_thread *WorkItemThread;
 
 static struct irqsafe_lock WorkItemDispatchLock;
+static BOOLEAN PendingListInit = FALSE;
 static LIST_ENTRY  PendingWorkItems;
 static XEN_WORKITEM *CurrentItem;
 
@@ -50,6 +51,7 @@ XenWorkItemDump(
     IN  VOID    *Context
     )
 {
+
     KIRQL       Irql;
     NTSTATUS    status;
 
@@ -137,6 +139,8 @@ XenWorkItemDispatch(
     return STATUS_SUCCESS;
 }
 
+NTSTATUS XenWorkItemInit(VOID);
+
 NTSTATUS
 _XenQueueWork(
     IN  const CHAR          *Caller,
@@ -147,6 +151,11 @@ _XenQueueWork(
 {
     XEN_WORKITEM            *Item;
     KIRQL                   Irql;
+
+    if (!PendingListInit)
+    {
+        (VOID) XenWorkItemInit();
+    }
 
     Item = XmAllocateZeroedMemory(sizeof(XEN_WORKITEM));
     if (!Item) {
@@ -173,6 +182,10 @@ NTSTATUS
 XenWorkItemInit(
     VOID)
 {
+    if(PendingListInit) return STATUS_SUCCESS;
+
+    PendingListInit = TRUE;
+
     InitializeListHead(&PendingWorkItems);
 
     (VOID) EvtchnSetupDebugCallback(XenWorkItemDump, NULL);
